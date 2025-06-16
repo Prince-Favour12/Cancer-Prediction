@@ -47,7 +47,7 @@ class DataCleaner:
 
         for col in data.columns.tolist():
             if data[col].isnull().sum() != 0:
-                if ((data[col].isnull().sum()/len(data)) * 100).round() <= imputation_thres:
+                if round((data[col].isnull().sum()/len(data)) * 100) <= imputation_thres:
                     if remove:
                         data = data.dropna(subset=col)
                     else:

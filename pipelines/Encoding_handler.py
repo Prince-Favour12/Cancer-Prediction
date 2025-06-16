@@ -46,16 +46,19 @@ class Transformation:
 
         return self.df
 
-    def encode(self) -> pd.DataFrame:
+    def encode(self, *, choice: Literal['standard_scaler', 'min_max_scaler']) -> pd.DataFrame:
         """
         Encodes categorical features in the DataFrame.
         - Features with more than 5 unique values are label encoded.
         - Features with 5 or fewer unique values are one-hot encoded.
 
+        Parameters:
+        - choice (Literal): The scaling method to use before encoding.
+
         Returns:
         - pd.DataFrame: The transformed DataFrame with encoded categorical features.
         """
-        self.df = self.scale(choice= self.choice)
+        self.df = self.scale(choice=choice)
         categorical_features = self.df.select_dtypes(exclude=np.number).columns.tolist()
 
         for col in categorical_features:
