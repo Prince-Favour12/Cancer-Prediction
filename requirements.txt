@@ -6,3 +6,4 @@ scikit-learn
 mlflow
 dvc
 xgboost
+imblearn

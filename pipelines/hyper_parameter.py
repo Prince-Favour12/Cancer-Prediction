@@ -28,7 +28,7 @@ class HyperParameter:
             A dictionary where keys are model names and values are model instances.
         """
         return {
-            'LogisticRegression': LogisticRegression(),
+            'LogisticRegression': LogisticRegression(max_iter=10000, random_state=42),
             'RandomForestClassifier': RandomForestClassifier(),
             'GradientBoostingClassifier': GradientBoostingClassifier(),
             'SVC': SVC(),
@@ -186,5 +186,5 @@ class HyperParameter:
         Returns:
             The best hyperparameters or the specified parameters for the model by name.
         """
-        return self._best_params
+        return self._best_params.get(model_name, {}) if model_name else self._best_params
 

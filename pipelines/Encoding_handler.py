@@ -1,71 +1,99 @@
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler
+
 import pandas as pd
 import numpy as np
-from typing import Literal
+from typing import Literal, Optional, Union, Tuple
+
+DataType = Union[pd.DataFrame, np.ndarray]
 
 class Transformation:
     """
-    A class for performing data transformation tasks such as scaling and encoding
-    on a pandas DataFrame.
+    A class for performing data preprocessing tasks including scaling,
+    encoding, and balancing for classification tasks.
     """
 
-    def __init__(self, data: pd.DataFrame):
-        """
-        Initializes the Transformation object.
+    def __init__(self):
+        pass
 
-        Parameters:
-        - data (pd.DataFrame): The input DataFrame to be transformed.
-        """
-        self.df = data.copy()
-
-    def scale(self, *, choice: Literal['standard_scaler', 'min_max_scaler']) -> pd.DataFrame:
-        """
-        Applies feature scaling to numeric columns in the DataFrame.
-
-        Parameters:
-        - choice (Literal): The scaling method to use. Must be either:
-            - 'standard_scaler': Standardize features by removing the mean and scaling to unit variance.
-            - 'min_max_scaler': Scale features to a given range, default is [0, 1].
-
-        Returns:
-        - pd.DataFrame: The transformed DataFrame with scaled numeric columns.
-        """
-        self.choice = choice
-        numeric_features = self.df.select_dtypes(include=np.number).columns.tolist()
-
-        if self.choice == 'standard_scaler':
+    def scale(
+        self,
+        *,
+        X_train: DataType,
+        X_test: DataType,
+        method: Literal['standard_scaler', 'min_max_scaler']
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        if method == 'standard_scaler':
             scaler = StandardScaler()
-            self.df[numeric_features] = scaler.fit_transform(self.df[numeric_features])
-
-        elif self.choice == 'min_max_scaler':
+        elif method == 'min_max_scaler':
             scaler = MinMaxScaler()
-            self.df[numeric_features] = scaler.fit_transform(self.df[numeric_features])
-
         else:
-            raise ValueError(f"Invalid choice '{choice}'. Must be 'standard_scaler' or 'min_max_scaler'.")
+            raise ValueError("method must be 'standard_scaler' or 'min_max_scaler'")
+        
+        if isinstance(X_train, DataType):
+            X_train = pd.DataFrame(X_train)
+        if isinstance(X_test, DataType):
+            X_test = pd.DataFrame(X_test)
 
-        return self.df
+        numeric_cols = X_train.select_dtypes(include=np.number).columns
+        X_train_scaled = X_train.copy()
+        X_test_scaled = X_test.copy()
 
-    def encode(self, *, choice: Literal['standard_scaler', 'min_max_scaler']) -> pd.DataFrame:
+        X_train_scaled[numeric_cols] = scaler.fit_transform(X_train[numeric_cols])
+        X_test_scaled[numeric_cols] = scaler.transform(X_test[numeric_cols])
+
+        return X_train_scaled, X_test_scaled
+
+    def encode(
+        self,
+        *,
+        X_train: pd.DataFrame,
+        X_test: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        train_encoded = X_train.copy()
+        test_encoded = X_test.copy()
+
+        cat_cols = train_encoded.select_dtypes(exclude=np.number).columns
+
+        for col in cat_cols:
+            if train_encoded[col].nunique() > 5:
+                encoder = LabelEncoder()
+                train_encoded[col] = encoder.fit_transform(train_encoded[col])
+                test_encoded[col] = encoder.transform(test_encoded[col])
+            else:
+                train_encoded = pd.get_dummies(train_encoded, columns=[col], dtype=int)
+                test_encoded = pd.get_dummies(test_encoded, columns=[col], dtype=int)
+                train_encoded, test_encoded = train_encoded.align(test_encoded, join='left', axis=1, fill_value=0)
+
+        return train_encoded, test_encoded
+
+    def balance(
+        self,
+        X: pd.DataFrame,
+        y: Union[pd.Series, np.ndarray],
+        method: Literal['smote', 'over', 'under'] = 'smote',
+        random_state: int = 42
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Encodes categorical features in the DataFrame.
-        - Features with more than 5 unique values are label encoded.
-        - Features with 5 or fewer unique values are one-hot encoded.
-
-        Parameters:
-        - choice (Literal): The scaling method to use before encoding.
+        Balances the dataset using the specified method:
+        - 'smote': SMOTE oversampling
+        - 'over': Random oversampling
+        - 'under': Random undersampling
 
         Returns:
-        - pd.DataFrame: The transformed DataFrame with encoded categorical features.
+        - Tuple of resampled (X, y)
         """
-        self.df = self.scale(choice=choice)
-        categorical_features = self.df.select_dtypes(exclude=np.number).columns.tolist()
+        if method == 'smote':
+            sampler = SMOTE(random_state=random_state)
+        elif method == 'over':
+            sampler = RandomOverSampler(random_state=random_state)
+        elif method == 'under':
+            sampler = RandomUnderSampler(random_state=random_state)
+        else:
+            raise ValueError("method must be one of 'smote', 'over', or 'under'")
 
-        for col in categorical_features:
-            if self.df[col].nunique() > 5:
-                encoder = LabelEncoder()
-                self.df[col] = encoder.fit_transform(self.df[col])
-            else:
-                self.df = pd.get_dummies(self.df, columns=[col], dtype=int)
-
-        return self.df
+        result = sampler.fit_resample(X, y)
+        X_resampled, y_resampled = result[:2]
+        return np.asarray(X_resampled), np.asarray(y_resampled)
