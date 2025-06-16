@@ -30,13 +30,14 @@ class Transformation:
         Returns:
         - pd.DataFrame: The transformed DataFrame with scaled numeric columns.
         """
+        self.choice = choice
         numeric_features = self.df.select_dtypes(include=np.number).columns.tolist()
 
-        if choice == 'standard_scaler':
+        if self.choice == 'standard_scaler':
             scaler = StandardScaler()
             self.df[numeric_features] = scaler.fit_transform(self.df[numeric_features])
 
-        elif choice == 'min_max_scaler':
+        elif self.choice == 'min_max_scaler':
             scaler = MinMaxScaler()
             self.df[numeric_features] = scaler.fit_transform(self.df[numeric_features])
 
@@ -54,6 +55,7 @@ class Transformation:
         Returns:
         - pd.DataFrame: The transformed DataFrame with encoded categorical features.
         """
+        self.df = self.scale(choice= self.choice)
         categorical_features = self.df.select_dtypes(exclude=np.number).columns.tolist()
 
         for col in categorical_features:
